@@ -20,11 +20,13 @@ import (
 )
 
 type args struct {
-	Root string   `arg:"--root" help:"root path to search go files in"`
-	Save bool     `arg:"-s,--save" help:"save changes"`
-	Rule RuleType `arg:"positional,required" help:"A rule to make import path changes"`
+	Root    string   `arg:"--root" help:"Root path to search go files in."`
+	Exclude []string `arg:"-x,--exclude" help:"Exclude dirs and/or files from search."`
+	Save    bool     `arg:"-s,--save" help:"Save changes."`
+	Rule    RuleType `arg:"positional,required" help:"A rule to make import path changes"`
 }
 
+// Description of the application purpose.
 func (args) Description() string {
 	return "A tool to change import paths based on either prefix switch or regular expressions"
 }
@@ -33,6 +35,11 @@ func main() {
 	var inputArgs args
 	inputArgs.Root = "."
 	argParse := arg.MustParse(&inputArgs)
+
+	xclude := make(map[string]struct{}, len(inputArgs.Exclude))
+	for _, p := range inputArgs.Exclude {
+		xclude[p] = struct{}{}
+	}
 
 	var rep replacer.Replacer
 	switch v := inputArgs.Rule.Rule.(type) {
@@ -58,6 +65,21 @@ func main() {
 	var actualChanges int
 	var filesCounter int
 	err := filepath.Walk(inputArgs.Root, func(path string, info os.FileInfo, err error) error {
+		for p := range xclude {
+			cut, found := strings.CutPrefix(path, p)
+			if !found {
+				continue
+			}
+
+			if cut == "" {
+				return filepath.SkipDir
+			}
+
+			if strings.HasPrefix(cut, string(filepath.Separator)) {
+				return nil
+			}
+		}
+
 		_, base := filepath.Split(path)
 		if info.IsDir() {
 			if strings.HasPrefix(base, ".") && len(base) > 1 {

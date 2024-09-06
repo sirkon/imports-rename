@@ -1,6 +1,7 @@
 module github.com/sirkon/go-imports-rename
 
-go 1.18
+
+go 1.20
 
 require (
 	github.com/alexflint/go-arg v1.0.0
